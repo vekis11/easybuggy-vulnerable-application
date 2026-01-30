@@ -1,6 +1,6 @@
-# Trivy: Deep security scan — Misconfig, IaC, Secrets, ECR, SBOM, HTML report (Critical → Informational)
+# Trivy + CodeQL: Deep security scan — Misconfig, IaC, Secrets, ECR, SBOM, HTML report, SAST (CodeQL)
 
-name: Trivy Security Scan
+name: Trivy & CodeQL Security Scan
 
 on:
   push:
@@ -19,6 +19,30 @@ env:
   SEVERITY_LIST: "CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN"  # Critical → Informational order
 
 jobs:
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java
+          build-mode: none
+          config-file: .github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: codeql-java
+
   scan:
     name: Trivy Deep Scan
     runs-on: ubuntu-latest
@@ -108,20 +132,20 @@ jobs:
 
       # --- Upload SARIF to Security tab ---
       - name: Upload SARIF — FS
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
       - name: Upload SARIF — IaC
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-iac.sarif
           category: trivy-iac
       - name: Upload SARIF — ECR
         if: always() && github.event_name == 'workflow_dispatch' && github.event.inputs.ecr_image != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-ecr.sarif
           category: trivy-ecr
@@ -152,7 +176,7 @@ jobs:
           echo "| Item | Details |" >> $GITHUB_STEP_SUMMARY
           echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
           echo "| **Vulnerabilities (order)** | CRITICAL → HIGH → MEDIUM → LOW → UNKNOWN (Informational) |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Scans** | Misconfig, IaC (Terraform/Docker/K8s), Secrets, ECR (optional), SBOM |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Scans** | Trivy: Misconfig, IaC, Secrets, ECR, SBOM. CodeQL: Java SAST (security-extended) |" >> $GITHUB_STEP_SUMMARY
           echo "| **HTML report** | Download \`trivy-report-${{ github.run_number }}\` artifact → open \`trivy-report.html\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **SBOM** | \`trivy-sbom.json\` (CycloneDX) in the same artifact |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

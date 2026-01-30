@@ -1,0 +1,5 @@
+# CodeQL config: use security-extended query suite (default + extra security queries)
+name: "CodeQL Java - Security Extended"
+disable-default-queries: true
+packs:
+  - codeql/java-queries:codeql-suites/java-security-extended.qls
