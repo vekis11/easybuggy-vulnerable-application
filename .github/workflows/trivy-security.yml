@@ -39,9 +39,29 @@ jobs:
           config-file: .github/codeql/codeql-config.yml
 
       - name: Perform CodeQL Analysis
+        id: codeql-analyze
         uses: github/codeql-action/analyze@v4
         with:
           category: codeql-java
+          output: codeql-results
+          post-processed-sarif-path: codeql-results
+
+      - name: Generate CodeQL HTML report
+        run: node .github/scripts/codeql-sarif-to-html.js codeql-results codeql-report.html
+        continue-on-error: true
+
+      - name: Ensure CodeQL report exists
+        if: always()
+        run: |
+          [ -f codeql-report.html ] || echo '<!DOCTYPE html><html><body><h1>CodeQL Report</h1><p>No report generated. Check CodeQL analysis step.</p></body></html>' > codeql-report.html
+
+      - name: Upload CodeQL HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-report-${{ github.run_number }}
+          path: codeql-report.html
+          retention-days: 30
 
   scan:
     name: Trivy Deep Scan
@@ -177,8 +197,9 @@ jobs:
           echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
           echo "| **Vulnerabilities (order)** | CRITICAL → HIGH → MEDIUM → LOW → UNKNOWN (Informational) |" >> $GITHUB_STEP_SUMMARY
           echo "| **Scans** | Trivy: Misconfig, IaC, Secrets, ECR, SBOM. CodeQL: Java SAST (security-extended) |" >> $GITHUB_STEP_SUMMARY
-          echo "| **HTML report** | Download \`trivy-report-${{ github.run_number }}\` artifact → open \`trivy-report.html\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **SBOM** | \`trivy-sbom.json\` (CycloneDX) in the same artifact |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Trivy HTML** | Download \`trivy-report-${{ github.run_number }}\` → open \`trivy-report.html\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **CodeQL HTML** | Download \`codeql-report-${{ github.run_number }}\` → open \`codeql-report.html\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **SBOM** | \`trivy-sbom.json\` (CycloneDX) in Trivy artifact |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Open this run to download the HTML report:** [Run #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
