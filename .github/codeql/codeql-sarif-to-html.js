@@ -1,11 +1,38 @@
 #!/usr/bin/env node
 /**
- * Reads CodeQL SARIF file(s) from a directory and generates a single HTML report.
- * Usage: node codeql-sarif-to-html.js <sarif-dir> <output.html>
+ * Reads CodeQL SARIF file(s) and generates an HTML report.
+ * Config: .github/codeql/codeql-config.yml (html-report.sarif-dir, html-report.output).
+ * Usage: node codeql-sarif-to-html.js [config.yml]   (default: same-dir codeql-config.yml)
  */
 
 const fs = require('fs');
 const path = require('path');
+
+const SCRIPT_DIR = path.resolve(path.dirname(process.argv[1] || '.'));
+
+function readHtmlReportConfig(configPath) {
+  const p = configPath || path.join(SCRIPT_DIR, 'codeql-config.yml');
+  if (!fs.existsSync(p)) return null;
+  const content = fs.readFileSync(p, 'utf8');
+  const lines = content.split(/\r?\n/);
+  let inHtmlReport = false;
+  const config = {};
+  for (const line of lines) {
+    if (/^html-report\s*:/.test(line.trim())) {
+      inHtmlReport = true;
+      continue;
+    }
+    if (inHtmlReport) {
+      const topLevel = /^\w/.test(line) && !line.startsWith(' ');
+      if (topLevel && !line.trim().startsWith('#')) break;
+      const m = line.match(/^\s*sarif-dir\s*:\s*(.+)/);
+      if (m) config.sarifDir = m[1].trim();
+      const m2 = line.match(/^\s*output\s*:\s*(.+)/);
+      if (m2) config.output = m2[1].trim();
+    }
+  }
+  return config.sarifDir && config.output ? config : null;
+}
 
 function findSarifFiles(dir) {
   const files = [];
@@ -122,8 +149,12 @@ function generateHtml(rows) {
 </html>`;
 }
 
-const sarifDir = process.argv[2] || 'codeql-results';
-const outFile = process.argv[3] || 'codeql-report.html';
+// Resolve paths from config (relative to repo root when run from workflow)
+const configPath = process.argv[2] && process.argv[2].endsWith('.yml') ? process.argv[2] : null;
+const config = readHtmlReportConfig(configPath);
+const sarifDir = config ? config.sarifDir : process.argv[2] || 'codeql-results';
+const outFile = config ? config.output : process.argv[3] || 'codeql-report.html';
+
 const rows = collectResults(sarifDir);
 fs.writeFileSync(outFile, generateHtml(rows), 'utf8');
 console.log(`Wrote ${rows.length} result(s) to ${outFile}`);

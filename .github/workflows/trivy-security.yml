@@ -47,7 +47,7 @@ jobs:
           post-processed-sarif-path: codeql-results
 
       - name: Generate CodeQL HTML report
-        run: node .github/scripts/codeql-sarif-to-html.js codeql-results codeql-report.html
+        run: node .github/codeql/codeql-sarif-to-html.js
         continue-on-error: true
 
       - name: Ensure CodeQL report exists

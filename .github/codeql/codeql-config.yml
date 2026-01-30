@@ -3,3 +3,8 @@ name: "CodeQL Java - Security Extended"
 disable-default-queries: true
 packs:
   - codeql/java-queries:codeql-suites/java-security-extended.qls
+
+# HTML report: used by codeql-sarif-to-html.js in this directory (workflow runs it after analyze)
+html-report:
+  sarif-dir: codeql-results
+  output: codeql-report.html
